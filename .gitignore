@@ -1,4 +1,21 @@
-.Rproj.user
+# macOS
+.DS_Store
+**/.DS_Store
+
+# R / RStudio
+.Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
+
+# nie wysyłaj danych i wyników
+data/raw/*
+data/processed/*
+output/*
+
+# ale zostaw pliki .gitkeep, żeby foldery były widoczne
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!output/.gitkeep
+!output/figures/.gitkeep
