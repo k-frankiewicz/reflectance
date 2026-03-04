@@ -1,4 +1,4 @@
-# reflectance
+# spectral reflectance
 
 This repository contains an R/RStudio workflow for processing spectral reflectance measurements and generating derived outputs.
 
