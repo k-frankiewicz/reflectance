@@ -12,6 +12,7 @@
 # nie wysyłaj danych i wyników
 data/raw/*
 data/processed/*
+data/metadata/*
 output/*
 
 # ale zostaw pliki .gitkeep, żeby foldery były widoczne
