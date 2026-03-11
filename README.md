@@ -45,8 +45,43 @@ General rule:
   * `drying` (P = air-dried/C = oven-dried/L = lyophilized)
   * `ageing` (T = temperature/H = humidity/B = both)
 
+* `scripts/02_process_ci710_raw_files.R`
+  Processes CI710 raw spectral `.csv` files from `data/raw/` and writes processed outputs to `data/processed/` using the same filenames.
+
+  The script:
+
+  * reads metadata embedded in each raw file
+  * extracts three data sections when present:
+    * `spectrum`
+    * `peaks`
+    * `calibration`
+  * converts them into a tidy tabular format
+  * saves one processed `.csv` per raw input file
+  * skips files that were already processed unless the source file in `data/raw/` is newer than its counterpart in `data/processed/`
+
+  Output tables may include the following fields:
+
+  * `source_file`
+  * `specimen_id`
+  * `layer_title`
+  * `color`
+  * `mode`
+  * `integration_time`
+  * `boxcar_width`
+  * `scans_to_average`
+  * `section`
+  * `record_id`
+  * `wavelength`
+  * `raw_spectrometer_data`
+  * `calibrated_and_averaged_data`
+  * `peak_wavelength`
+  * `light_calibration_value`
+  * `darkness_calibration_value`
+
 ## Notes
 
 * `data/` and `output/` contents are intentionally excluded from version control via `.gitignore`.
 * To keep the directory skeleton visible, `.gitkeep` files are tracked in the relevant folders.
+* Processed files in `data/processed/` are generated locally from raw inputs and may be refreshed automatically when matching files in `data/raw/` are updated.
+* To avoid unnecessary re-processing, the CI710 processing step only runs for new or modified raw files.
 * When adding new scripts, keep the numbering convention (`02_...`, `03_...`) and document them above.
