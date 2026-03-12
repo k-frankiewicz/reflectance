@@ -7,6 +7,8 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
 * `R/`
   Reusable R functions shared across scripts (helpers, utilities).
 
+  * `R/qc_helpers.R` — helper functions used for file-level quality control of processed CI710 files
+
 * `scripts/`
   Step-by-step scripts that run the workflow in a defined order.
 
@@ -31,7 +33,7 @@ General rule:
 
 1. Put raw input files into `data/raw/`
 2. Run scripts from `scripts/` in ascending order
-3. Inspect results in `data/` and `output/` (local outputs)
+3. Inspect results in `data/`, `output/`, and RStudio views (local outputs)
 
 ## Script order and responsibilities
 
@@ -78,10 +80,33 @@ General rule:
   * `light_calibration_value`
   * `darkness_calibration_value`
 
+* `scripts/03_qc_processed_files.R`
+  Runs file-level quality control on processed CI710 `.csv` files from `data/processed/` and writes QC summaries to `output/tables/`.
+
+  The script:
+
+  * sources helper functions from `R/qc_helpers.R`
+  * reads `data/metadata/sample_manifest.csv`
+  * scans all processed `*.csv` files in `data/processed/`
+  * checks whether required sections and columns are present
+  * verifies acquisition settings against expected values
+  * evaluates spectral data in the analysis range (default: 400–950 nm)
+  * flags potential issues such as clipping, low calibration span, or unusually high roughness
+  * classifies each file as `pass`, `warn`, or `fail`
+  * saves result tables and opens them in RStudio with `View()` when run interactively
+
+  Output tables include:
+
+  * `qc_file_level_results.csv`
+  * `qc_file_level_summary.csv`
+  * `qc_file_level_reasons_summary.csv`
+  * `qc_file_level_summary_by_timepoint.csv`
+
 ## Notes
 
 * `data/` and `output/` contents are intentionally excluded from version control via `.gitignore`.
 * To keep the directory skeleton visible, `.gitkeep` files are tracked in the relevant folders.
 * Processed files in `data/processed/` are generated locally from raw inputs and may be refreshed automatically when matching files in `data/raw/` are updated.
 * To avoid unnecessary re-processing, the CI710 processing step only runs for new or modified raw files.
-* When adding new scripts, keep the numbering convention (`02_...`, `03_...`) and document them above.
+* The QC step reads all processed files currently present in `data/processed/`. Files without a matching row in the manifest can still be checked, but their joined metadata fields will remain empty.
+* When adding new scripts, keep the numbering convention (`02_...`, `03_...`, `04_...`) and document them above.
