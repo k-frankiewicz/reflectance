@@ -1,6 +1,6 @@
 # spectral reflectance
 
-This repository contains an R/RStudio workflow for processing spectral reflectance measurements and generating derived outputs.
+This repository contains an R/RStudio workflow for processing spectral reflectance measurements, running quality control, and generating derived outputs.
 
 ## Folder structure
 
@@ -8,6 +8,7 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
   Reusable R functions shared across scripts (helpers, utilities).
 
   * `R/qc_helpers.R` — helper functions used for file-level quality control of processed CI710 files
+  * `R/replicate_qc_helpers.R` — helper functions used for replicate-level quality control and thresholding
 
 * `scripts/`
   Step-by-step scripts that run the workflow in a defined order.
@@ -39,13 +40,17 @@ General rule:
 
 * `scripts/01_make_manifest.R`
   Scans `data/raw/` for `*.csv` files and builds/updates a local manifest at `data/metadata/sample_manifest.csv`.
+
   The manifest parses key fields from the filename:
 
   * `line`
   * `individual`
   * `replicate`
-  * `drying` (P = air-dried/C = oven-dried/L = lyophilized)
-  * `ageing` (T = temperature/H = humidity/B = both)
+  * `timepoint`
+  * `drying` (P = air-dried / C = oven-dried / L = lyophilized)
+  * `ageing` (T = temperature / H = humidity / B = both)
+
+  The script preserves existing manual columns in the manifest (for example `notes`) when the file is rebuilt.
 
 * `scripts/02_process_ci710_raw_files.R`
   Processes CI710 raw spectral `.csv` files from `data/raw/` and writes processed outputs to `data/processed/` using the same filenames.
@@ -102,11 +107,45 @@ General rule:
   * `qc_file_level_reasons_summary.csv`
   * `qc_file_level_summary_by_timepoint.csv`
 
+* `scripts/04_replicate_qc.R`
+  Runs replicate-level quality control on spectra that passed file-level QC (or passed with warnings) and writes replicate QC summaries to `output/tables/`.
+
+  The script:
+
+  * sources helper functions from `R/replicate_qc_helpers.R`
+  * reads `data/metadata/sample_manifest.csv`
+  * reads file-level QC results from `output/tables/qc_file_level_results.csv`
+  * keeps only files with file-level status `pass` or `warn`
+  * reads processed spectra from `data/processed/`
+  * restricts analysis to the analysis range (default: 400–950 nm)
+  * builds `sample_group` identifiers from manifest metadata
+  * computes a median reference spectrum for each sample group
+  * compares each replicate against its group median using:
+    * Pearson correlation (`pearson_r`)
+    * root mean square error (`rmse`)
+  * estimates outlier thresholds at a detailed group level when enough data are available, otherwise falls back to timepoint-level thresholds
+  * labels each replicate as:
+    * `ok`
+    * `outlier_candidate`
+    * `thresholds_unavailable`
+    * `not_assessed`
+
+  Output tables include:
+
+  * `replicate_qc_results.csv`
+  * `replicate_qc_summary.csv`
+  * `replicate_qc_summary_by_timepoint.csv`
+  * `sample_qc_summary.csv`
+  * `replicate_qc_thresholds.csv`
+
 ## Notes
 
 * `data/` and `output/` contents are intentionally excluded from version control via `.gitignore`.
 * To keep the directory skeleton visible, `.gitkeep` files are tracked in the relevant folders.
 * Processed files in `data/processed/` are generated locally from raw inputs and may be refreshed automatically when matching files in `data/raw/` are updated.
 * To avoid unnecessary re-processing, the CI710 processing step only runs for new or modified raw files.
-* The QC step reads all processed files currently present in `data/processed/`. Files without a matching row in the manifest can still be checked, but their joined metadata fields will remain empty.
-* When adding new scripts, keep the numbering convention (`02_...`, `03_...`, `04_...`) and document them above.
+* The file-level QC step reads all processed files currently present in `data/processed/`.
+* Files without a matching row in the manifest can still be checked at file level, but joined metadata fields will remain empty.
+* The replicate QC step only evaluates files that received file-level QC status `pass` or `warn`.
+* Replicate-level QC is based on within-group agreement among replicates and is intended to identify potentially unusual spectra for review, not to remove files automatically.
+* When adding new scripts, keep the numbering convention (`01_...`, `02_...`, `03_...`, `04_...`) and document them above.
