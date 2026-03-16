@@ -9,6 +9,7 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
 
   * `R/qc_helpers.R` — helper functions used for file-level quality control of processed CI710 files
   * `R/replicate_qc_helpers.R` — helper functions used for replicate-level quality control and thresholding
+  * `R/analysis_helpers.R` — helper functions used in the analytical workflow, including spectral index calculation, spectral similarity/difference metrics, summary helpers, and plotting utilities
 
 * `scripts/`
   Step-by-step scripts that run the workflow in a defined order.
@@ -137,6 +138,64 @@ General rule:
   * `replicate_qc_summary_by_timepoint.csv`
   * `sample_qc_summary.csv`
   * `replicate_qc_thresholds.csv`
+  
+* `scripts/05_analysis_results.R`
+  Runs the main reflectance analysis on spectra retained after file-level and replicate-level QC and writes analytical outputs to `output/tables/` and exploratory figures to `output/figures/`.
+
+  The script:
+
+  * sources helper functions from `R/replicate_qc_helpers.R` and `R/analysis_helpers.R`
+  * reads `data/metadata/sample_manifest.csv`
+  * reads file-level QC results from `output/tables/qc_file_level_results.csv`
+  * reads replicate-level QC results from `output/tables/replicate_qc_results.csv`
+  * keeps files with file-level QC status `pass` or `warn`
+  * excludes only replicate measurements labelled `outlier_candidate` at the replicate-QC step
+  * reads processed spectra from `data/processed/`
+  * restricts analysis to the analysis range (default: 400–950 nm)
+  * aggregates retained replicate spectra into representative sample spectra using the median reflectance at each wavelength within each biological sample group
+  * calculates spectral indices for individual retained replicates and for representative sample spectra, including:
+    * `mfdre`
+    * `rep`
+    * `res700_740`
+    * `mean_blue_450_500`
+    * `mean_green_500_570`
+    * `mean_red_650_680`
+    * `mean760_900`
+    * `datt`
+    * `pri`
+    * `sipi`
+    * `psri`
+  * builds pairwise comparison blocks for:
+    * dried vs fresh (`drying_vs_fresh`)
+    * aged vs dried (`ageing_vs_dried`)
+    * aged vs fresh (`total_vs_fresh`)
+  * computes for each pair:
+    * difference spectra (`delta_reflectance`)
+    * root mean square error (`rmse`)
+    * spectral angle mapper (`sam`)
+    * integrated absolute area under the difference spectrum (`iauc`)
+    * differences in derived spectral indices (`delta_*`)
+  * saves analytical tables and exploratory plots; blocks requiring aged spectra are skipped automatically when no aged files are available
+
+  Output tables include:
+
+  * `analysis_inclusion_summary.csv`
+  * `analysis_retained_spectra.csv`
+  * `analysis_sample_spectra.csv`
+  * `analysis_replicate_indices.csv`
+  * `analysis_replicate_index_summary.csv`
+  * `analysis_sample_indices.csv`
+  * `delta_spectra_drying_vs_fresh.csv`
+  * `comparison_drying_vs_fresh.csv`
+  * `summary_drying_vs_fresh_by_drying.csv`
+  * `delta_spectra_ageing_vs_dried.csv`
+  * `comparison_ageing_vs_dried.csv`
+  * `summary_ageing_vs_dried_by_drying_ageing.csv`
+  * `delta_spectra_total_vs_fresh.csv`
+  * `comparison_total_vs_fresh.csv`
+  * `summary_total_vs_fresh_by_drying_ageing.csv`
+  * `comparison_all_blocks.csv`
+  * `summary_all_blocks_by_comparison_type.csv`
 
 ## Notes
 
@@ -149,3 +208,7 @@ General rule:
 * The replicate QC step only evaluates files that received file-level QC status `pass` or `warn`.
 * Replicate-level QC is based on within-group agreement among replicates and is intended to identify potentially unusual spectra for review, not to remove files automatically.
 * When adding new scripts, keep the numbering convention (`01_...`, `02_...`, `03_...`, `04_...`) and document them above.
+* The main analysis step (`05_analysis_results.R`) is designed to work with incomplete experimental stages. If only fresh and dried spectra are present, it will run the drying-versus-fresh block and create empty outputs for ageing-dependent comparison blocks without failing.
+* Representative sample spectra are calculated as the median reflectance at each wavelength across retained replicate measurements within a biological sample group.
+* Replicate-level QC is used here as an exclusion flag only for measurements classified as `outlier_candidate`; files with `thresholds_unavailable` or `not_assessed` are retained unless excluded manually.
+* Exploratory figures produced by script 05 are intended for data inspection and workflow validation. Final inferential statistics and publication-ready figures should be generated in a later downstream script.
