@@ -186,7 +186,21 @@ candidate_formula_strings <- function(
     data,
     require_individual_random = FALSE
 ) {
-  fixed_part <- paste(fixed_terms, collapse = " + ")
+  
+  # --------------------------------------------------------------------------
+  # Fixed treatment structure
+  # --------------------------------------------------------------------------
+  
+  # When both drying and ageing are present, include their interaction.
+  if (all(c("drying", "ageing") %in% fixed_terms)) {
+    fixed_part <- "drying * ageing"
+  } else {
+    fixed_part <- paste(fixed_terms, collapse = " + ")
+  }
+  
+  # --------------------------------------------------------------------------
+  # Available grouping variables
+  # --------------------------------------------------------------------------
   
   n_line <- if ("line" %in% names(data)) {
     count_non_missing_levels(data$line)
@@ -200,48 +214,64 @@ candidate_formula_strings <- function(
     0L
   }
   
+  # --------------------------------------------------------------------------
+  # Line is treated as a fixed blocking factor
+  # --------------------------------------------------------------------------
+  
+  if (n_line >= 2) {
+    fixed_part <- paste(
+      fixed_part,
+      "+ line"
+    )
+  }
+  
   formulas <- character()
   
+  # --------------------------------------------------------------------------
+  # Models requiring repeated-measures structure
+  # --------------------------------------------------------------------------
+  
   if (require_individual_random) {
-    if (n_line >= 2 && n_individual >= 2) {
-      formulas <- c(
-        formulas,
-        paste(response, "~", fixed_part, "+ (1 | line) + (1 | individual_id)")
-      )
-    }
     
     if (n_individual >= 2) {
       formulas <- c(
         formulas,
-        paste(response, "~", fixed_part, "+ (1 | individual_id)")
+        paste(
+          response,
+          "~",
+          fixed_part,
+          "+ (1 | individual_id)"
+        )
       )
     }
     
     return(unique(formulas))
   }
   
-  if (n_line >= 2 && n_individual >= 2) {
-    formulas <- c(
-      formulas,
-      paste(response, "~", fixed_part, "+ (1 | line) + (1 | individual_id)")
-    )
-  }
+  # --------------------------------------------------------------------------
+  # Generic fallback for analyses not requiring individual random intercept
+  # --------------------------------------------------------------------------
   
   if (n_individual >= 2) {
     formulas <- c(
       formulas,
-      paste(response, "~", fixed_part, "+ (1 | individual_id)")
+      paste(
+        response,
+        "~",
+        fixed_part,
+        "+ (1 | individual_id)"
+      )
     )
   }
   
-  if (n_line >= 2) {
-    formulas <- c(
-      formulas,
-      paste(response, "~", fixed_part, "+ (1 | line)")
+  formulas <- c(
+    formulas,
+    paste(
+      response,
+      "~",
+      fixed_part
     )
-  }
-  
-  formulas <- c(formulas, paste(response, "~", fixed_part))
+  )
   
   unique(formulas)
 }
@@ -507,7 +537,12 @@ extract_diagnostics_row <- function(fit_result, comparison_block, response_famil
   )
 }
 
-extract_joint_tests <- function(fit_result, comparison_block, response_family, response) {
+extract_joint_tests <- function(
+    fit_result,
+    comparison_block,
+    response_family,
+    response
+) {
   fit <- fit_result$fit
   
   if (is.null(fit)) {
@@ -524,6 +559,7 @@ extract_joint_tests <- function(fit_result, comparison_block, response_family, r
   }
   
   jt_df <- as.data.frame(jt)
+  
   if (nrow(jt_df) == 0) {
     return(empty_tests())
   }
@@ -560,6 +596,18 @@ extract_joint_tests <- function(fit_result, comparison_block, response_family, r
     return(empty_tests())
   }
   
+  # Terms that should be retained in the exported omnibus tests.
+  # If both drying and ageing are included in the model,
+  # also retain their interaction.
+  allowed_terms <- fit_result$active_terms
+  
+  if (all(c("drying", "ageing") %in% fit_result$active_terms)) {
+    allowed_terms <- c(
+      allowed_terms,
+      "drying:ageing"
+    )
+  }
+  
   out <- jt_df %>%
     dplyr::mutate(
       term = .data[[term_col]],
@@ -572,7 +620,7 @@ extract_joint_tests <- function(fit_result, comparison_block, response_family, r
       !is.na(term),
       term != "(confounded)",
       term != "1",
-      term %in% fit_result$active_terms
+      term %in% allowed_terms
     ) %>%
     dplyr::transmute(
       comparison_block = comparison_block,

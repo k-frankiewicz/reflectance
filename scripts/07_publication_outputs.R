@@ -517,8 +517,15 @@ if (nrow(comparison_all) > 0) {
     mutate(
       comparison_block = factor(comparison_block, levels = comparison_levels, labels = unname(comparison_labels)),
       response = factor(response, levels = names(response_labels), labels = unname(response_labels)),
-      term = factor(term, levels = c("drying", "ageing"), labels = c("Drying effect", "Ageing effect")),
-      level = as.character(level),
+      term = factor(
+        term,
+        levels = c("drying", "ageing"),
+        labels = c("By drying method", "By ageing regime")
+      ),
+      level = factor(
+        level,
+        levels = c(drying_levels, ageing_levels)
+      ),
       plot_color = as.character(plot_color)
     )
 }
@@ -528,10 +535,36 @@ if (nrow(emmeans_primary) > 0) {
     filter(response %in% c("rmse", "sam", "iauc")) %>%
     mutate(
       level = as.character(level),
-      plot_color = if_else(term == "drying", level, "ageing", missing = "ageing"),
-      comparison_block = factor(comparison_block, levels = comparison_levels, labels = unname(comparison_labels)),
-      response = factor(response, levels = names(response_labels), labels = unname(response_labels)),
-      term = factor(term, levels = c("drying", "ageing"), labels = c("Drying effect", "Ageing effect"))
+      
+      plot_color = if_else(
+        term == "drying",
+        level,
+        "ageing",
+        missing = "ageing"
+      ),
+      
+      level = factor(
+        level,
+        levels = c(drying_levels, ageing_levels)
+      ),
+      
+      comparison_block = factor(
+        comparison_block,
+        levels = comparison_levels,
+        labels = unname(comparison_labels)
+      ),
+      
+      response = factor(
+        response,
+        levels = names(response_labels),
+        labels = unname(response_labels)
+      ),
+      
+      term = factor(
+        term,
+        levels = c("drying", "ageing"),
+        labels = c("By drying method", "By ageing regime")
+      )
     )
 }
 
