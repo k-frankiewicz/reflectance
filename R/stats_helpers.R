@@ -634,7 +634,11 @@ extract_emmeans_one_term <- function(fit_result, comparison_block, response_fami
   }
   
   contrast_obj <- tryCatch(
-    emmeans::pairs(emm_obj, adjust = "none"),
+    emmeans::contrast(
+      emm_obj,
+      method = "pairwise",
+      adjust = "none"
+    ),
     error = function(e) NULL
   )
   

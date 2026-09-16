@@ -218,6 +218,51 @@ message(
 )
 
 # ------------------------------------------------------------------------------
+# Check completeness of aged experimental design
+# ------------------------------------------------------------------------------
+
+expected_drying_levels <- c("P", "C", "L")
+expected_ageing_levels <- c("T", "H", "B")
+
+aged_design_counts <- sample_indices %>%
+  filter(timepoint == "aged") %>%
+  count(drying, ageing, name = "n_samples")
+
+aged_design_check <- tidyr::expand_grid(
+  drying = expected_drying_levels,
+  ageing = expected_ageing_levels
+) %>%
+  left_join(
+    aged_design_counts,
+    by = c("drying", "ageing")
+  ) %>%
+  mutate(
+    n_samples = dplyr::coalesce(n_samples, 0L)
+  )
+
+write_csv(
+  aged_design_check,
+  file.path(output_tables_dir, "analysis_aged_design_check.csv")
+)
+
+missing_design_cells <- aged_design_check %>%
+  filter(n_samples == 0)
+
+if (nrow(missing_design_cells) > 0) {
+  stop(
+    "Incomplete aged experimental design after QC. Missing drying × ageing cells: ",
+    paste(
+      paste0(
+        missing_design_cells$drying,
+        "/",
+        missing_design_cells$ageing
+      ),
+      collapse = ", "
+    )
+  )
+}
+
+# ------------------------------------------------------------------------------
 # Convenience lookup tables for pairwise comparisons
 # ------------------------------------------------------------------------------
 

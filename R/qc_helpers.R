@@ -34,7 +34,7 @@ check_expected_value <- function(x, expected) {
     return(FALSE)
   }
   
-  length(vals) == 1 && vals == expected
+  length(vals) == 1 && vals[[1]] %in% expected
 }
 
 empty_qc_output <- function(file_name) {

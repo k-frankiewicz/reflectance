@@ -260,7 +260,13 @@ save_arranged_plots_with_shared_legend <- function(
   row_heights <- c(row_heights, list(grid::unit(1, "null")))
   
   if (has_legend) {
-    row_heights <- c(row_heights, list(grid::unit(1.4, "lines")))
+    legend_height <- grid::grobHeight(legend_grob) +
+      grid::unit(0.5, "lines")
+    
+    row_heights <- c(
+      row_heights,
+      list(legend_height)
+    )
   }
   
   layout <- grid::grid.layout(

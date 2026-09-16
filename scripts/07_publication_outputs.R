@@ -552,7 +552,11 @@ if (nrow(fig3_emm) > 0) {
       linewidth = 0.40,
       fatten = 1.4
     ) +
-    facet_grid(response ~ comparison_block + term, scales = "free_y", space = "free_x") +
+    facet_grid(
+      response ~ comparison_block + term,
+      scales = "free",
+      space = "free_x"
+    ) +
     scale_color_manual(
       values = c(
         drying_colors,

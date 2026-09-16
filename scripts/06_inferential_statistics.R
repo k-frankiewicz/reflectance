@@ -101,7 +101,11 @@ for (i in seq_len(nrow(comparison_data))) {
   block_name <- comparison_data$comparison_block[[i]]
   df <- comparison_data$data[[i]]
   
-  require_individual_random <- block_name %in% c("drying_vs_fresh", "total_vs_fresh")
+  require_individual_random <- block_name %in% c(
+    "drying_vs_fresh",
+    "ageing_vs_dried",
+    "total_vs_fresh"
+  )
   
   candidate_terms <- switch(
     block_name,
