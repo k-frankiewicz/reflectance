@@ -166,7 +166,7 @@ read_emmeans_primary_table <- function(path) {
   
   num_cols <- c(
     "emmean",
-    "SE",
+    "se",
     "df",
     "lower_cl",
     "upper_cl",
@@ -329,4 +329,148 @@ save_arranged_plots_with_shared_legend <- function(
   grid::popViewport()
   
   invisible(TRUE)
+}
+
+# ------------------------------------------------------------------------------
+# Shared figure design (used by scripts/07_publication_outputs.R)
+# ------------------------------------------------------------------------------
+
+# Colour-vision-safe palette for drying methods. Chosen by an exhaustive search over
+# Okabe-Ito/Tol colours for the largest minimum pairwise distance (CIELAB) under normal,
+# deuteranopic and protanopic vision, ordered light -> dark so that the three methods
+# also differ in lightness (readable in grayscale).
+pub_colors_drying <- c(P = "#E69F00", C = "#117733", L = "#332288")
+pub_color_fresh   <- "#666666"
+pub_color_dried   <- "#111111"   # dried reference in spectra plots (drying method is given by the column)
+
+# Ageing regimes get their own colours (temperature = red-orange, humidity = blue,
+# both = purple, i.e. the mixture); these differ from the drying-method colours and are
+# always combined with point shapes where points are drawn.
+pub_colors_ageing <- c(T = "#D55E00", H = "#0072B2", B = "#CC79A7")
+
+pub_labels_drying <- c(P = "Air-dried", C = "Oven-dried", L = "Lyophilized")
+pub_labels_drying_short <- c(P = "Air", C = "Oven", L = "Lyoph.")
+pub_labels_ageing <- c(T = "Temperature", H = "Humidity", B = "Both")
+# full wording for figures (labels on the figure instead of abbreviations plus legend)
+pub_labels_ageing_full <- c(
+  T = "Ageing with temperature",
+  H = "Ageing with humidity",
+  B = "Ageing with temperature and humidity (both)"
+)
+pub_labels_ageing_with <- c(T = "With temperature", H = "With humidity", B = "With temperature and humidity")
+pub_labels_ageing_short <- c(T = "Temp.", H = "Humid.", B = "Both")
+
+# Ageing regimes: point shapes (filled, so they take fill + outline)
+pub_shapes_ageing <- c(T = 24, H = 22, B = 21)
+
+theme_pub <- function(base_size = 7) {
+  ggplot2::theme_bw(base_size = base_size) +
+    ggplot2::theme(
+      text = ggplot2::element_text(colour = "black"),
+      axis.text = ggplot2::element_text(size = base_size - 1, colour = "black"),
+      axis.title = ggplot2::element_text(size = base_size),
+      axis.ticks = ggplot2::element_line(colour = "grey40", linewidth = 0.3),
+      strip.text = ggplot2::element_text(size = base_size, colour = "black"),
+      strip.background = ggplot2::element_rect(fill = "grey93", colour = NA),
+      panel.border = ggplot2::element_rect(colour = "grey40", linewidth = 0.4, fill = NA),
+      panel.grid.major = ggplot2::element_line(colour = "grey91", linewidth = 0.25),
+      panel.grid.minor = ggplot2::element_blank(),
+      legend.text = ggplot2::element_text(size = base_size - 0.5),
+      legend.title = ggplot2::element_text(size = base_size - 0.5),
+      legend.key.size = grid::unit(3.5, "mm"),
+      legend.margin = ggplot2::margin(0, 0, 0, 0),
+      plot.margin = ggplot2::margin(2, 3, 2, 2, "mm")
+    )
+}
+
+# Text size given in points (geom_text/annotate take mm)
+pt_to_mm <- function(pt) pt / ggplot2::.pt
+
+# Vector PDF (cairo) + high-resolution PNG; sizes in mm (figures are designed at final size)
+save_publication_figure <- function(plot, path_base, width_mm, height_mm, dpi = 600) {
+  w <- width_mm / 25.4
+  h <- height_mm / 25.4
+
+  ggplot2::ggsave(
+    paste0(path_base, ".pdf"), plot,
+    width = w, height = h, device = grDevices::cairo_pdf, bg = "white"
+  )
+
+  png_device <- if (requireNamespace("ragg", quietly = TRUE)) ragg::agg_png else "png"
+  ggplot2::ggsave(
+    paste0(path_base, ".png"), plot,
+    width = w, height = h, dpi = dpi, device = png_device, bg = "white"
+  )
+
+  invisible(path_base)
+}
+
+format_p_label <- function(p) {
+  dplyr::case_when(
+    is.na(p) ~ NA_character_,
+    p < 0.001 ~ "P < 0.001",
+    p < 0.01 ~ sprintf("P = %.3f", p),
+    p >= 0.995 ~ "P = 1",
+    TRUE ~ sprintf("P = %.2f", p)
+  )
+}
+
+p_to_stars <- function(p) {
+  dplyr::case_when(
+    is.na(p) ~ "",
+    p < 0.001 ~ "***",
+    p < 0.01 ~ "**",
+    p < 0.05 ~ "*",
+    TRUE ~ ""
+  )
+}
+
+# Compact letter display from pairwise contrasts ("A - B" with adjusted p-values).
+# `levels_ordered` should be sorted by decreasing estimated marginal mean so that "a"
+# marks the largest mean. Returns NA for all levels when no contrast is significant.
+compact_letters <- function(levels_ordered, contrasts_df, alpha = 0.05) {
+  n <- length(levels_ordered)
+  sig <- matrix(FALSE, n, n, dimnames = list(levels_ordered, levels_ordered))
+
+  for (i in seq_len(nrow(contrasts_df))) {
+    parts <- trimws(strsplit(contrasts_df$contrast[i], " - ", fixed = TRUE)[[1]])
+
+    if (length(parts) == 2 && all(parts %in% levels_ordered)) {
+      is_sig <- isTRUE(contrasts_df$p_value_adjusted[i] < alpha)
+      sig[parts[1], parts[2]] <- is_sig
+      sig[parts[2], parts[1]] <- is_sig
+    }
+  }
+
+  if (!any(sig)) {
+    return(stats::setNames(rep(NA_character_, n), levels_ordered))
+  }
+
+  subsets <- unlist(
+    lapply(seq_len(n), function(k) utils::combn(levels_ordered, k, simplify = FALSE)),
+    recursive = FALSE
+  )
+
+  no_sig_pair <- function(s) {
+    if (length(s) == 1) return(TRUE)
+    m <- sig[s, s, drop = FALSE]
+    !any(m[upper.tri(m)])
+  }
+
+  ok <- Filter(no_sig_pair, subsets)
+  maximal <- Filter(
+    function(s) !any(vapply(ok, function(o) length(o) > length(s) && all(s %in% o), logical(1))),
+    ok
+  )
+
+  first_pos <- vapply(maximal, function(s) min(match(s, levels_ordered)), numeric(1))
+  maximal <- maximal[order(first_pos, -lengths(maximal))]
+
+  out <- stats::setNames(character(n), levels_ordered)
+
+  for (k in seq_along(maximal)) {
+    out[maximal[[k]]] <- paste0(out[maximal[[k]]], letters[k])
+  }
+
+  out
 }

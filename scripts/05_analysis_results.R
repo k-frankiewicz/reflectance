@@ -152,7 +152,8 @@ sample_replicate_counts <- retained_spectra %>%
 representative_spectra <- retained_spectra %>%
   group_by(sample_group, timepoint, line, individual, drying, ageing, wavelength) %>%
   summarise(
-    reflectance = median(reflectance, na.rm = TRUE),
+    # replicate-level statistics must be computed BEFORE `reflectance` is
+    # overwritten with the median (summarise() evaluates arguments sequentially)
     mean_reflectance = mean(reflectance, na.rm = TRUE),
     sd_reflectance = if (dplyr::n() >= 2) stats::sd(reflectance, na.rm = TRUE) else NA_real_,
     cv_reflectance = if (!is.na(mean_reflectance) && !is.na(sd_reflectance) && mean_reflectance != 0) {
@@ -160,8 +161,10 @@ representative_spectra <- retained_spectra %>%
     } else {
       NA_real_
     },
+    reflectance = median(reflectance, na.rm = TRUE),
     .groups = "drop"
   ) %>%
+  relocate(reflectance, .before = mean_reflectance) %>%
   left_join(
     sample_replicate_counts,
     by = c("sample_group", "timepoint", "line", "individual", "drying", "ageing")

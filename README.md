@@ -1,6 +1,6 @@
 # spectral reflectance
 
-This repository contains an R/RStudio workflow for processing spectral reflectance measurements, running quality control, and generating derived outputs.
+This repository contains an R/RStudio workflow for processing spectral reflectance measurements (CI-710 leaf spectrometer), running quality control, and generating derived outputs, statistics, and publication figures.
 
 ## Folder structure
 
@@ -11,7 +11,7 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
   * `R/replicate_qc_helpers.R` — helper functions used for replicate-level quality control and thresholding
   * `R/analysis_helpers.R` — helper functions used in the analytical workflow, including spectral index calculation, spectral similarity/difference metrics, summary helpers, and plotting utilities
   * `R/stats_helpers.R` — helper functions used in inferential statistical analyses, including model fitting, diagnostics, estimated marginal means, contrasts, and test extraction
-  * `R/publication_helpers.R` — helper functions used for assembling publication-ready figures and tables, including safe readers, input harmonisation, legend extraction, and multi-panel plot export
+  * `R/publication_helpers.R` — helper functions used for publication-ready figures and tables: safe readers and input harmonisation, the shared figure theme (`theme_pub()`), the colour-vision-safe palettes (drying method, ageing regime) and point-shape conventions, vector + high-resolution export (`save_publication_figure()`), and compact-letter display from pairwise contrasts (`compact_letters()`)
 
 * `scripts/`
   Step-by-step scripts that run the workflow in a defined order.
@@ -28,12 +28,21 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
 
   * `output/figures/` — exploratory plots and figures
   * `output/tables/` — non-figure results (e.g., CSV summaries, exported tables)
-  * `output/publication/figures/` — publication-ready figures exported by downstream scripts
+  * `output/publication/figures/` — publication-ready figures (vector PDF + 600 dpi PNG) exported by script 07, plus draft captions and alternative text (`figure_captions_draft.md`)
   * `output/publication/tables/` — publication-ready source-data tables and exported summary tables
+
+## Requirements
+
+R with the following packages:
+
+* data handling and plotting: `readr`, `dplyr`, `tidyr`, `purrr`, `tibble`, `stringr`, `tidyverse`, `ggplot2`, `scales`; `cowplot` (script 07, experimental-design figure); `ragg` (script 07, PNG export; falls back to base `png`)
+* mixed models (script 06 only): `lme4`, `lmerTest`, `emmeans` (with `pbkrtest`, which `emmeans` uses for Kenward–Roger degrees of freedom)
+
+The results reported in the manuscript were produced with R 4.5.2, `lme4` 1.1.38, `lmerTest` 3.2.1, `emmeans` 2.0.0 and `ggplot2` 3.5.2.
 
 ## Workflow overview
 
-The workflow is executed by running scripts in the `scripts/` folder in numeric order.
+The workflow is executed by running scripts in the `scripts/` folder in numeric order, from the project root (`reflectance.Rproj`).
 
 General rule:
 
@@ -41,9 +50,11 @@ General rule:
 2. Run scripts from `scripts/` in ascending order
 3. Inspect results in `data/`, `output/`, and RStudio views (local outputs)
 
+Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.csv`, e.g. `B73.A.1.csv` (fresh), `B73.A.P.1.csv` (dried) or `B73.A.P.T.1.csv` (aged).
+
 ## Script order and responsibilities
 
-* `scripts/01_make_manifest.R`
+* `scripts/01_make_sample_manifest_from_filenames.R`
   Scans `data/raw/` for `*.csv` files and builds/updates a local manifest at `data/metadata/sample_manifest.csv`.
 
   The manifest parses key fields from the filename:
@@ -51,14 +62,14 @@ General rule:
   * `line`
   * `individual`
   * `replicate`
-  * `timepoint`
+  * `timepoint` (`fresh`, `dried`, `aged`; derived from the number of filename parts)
   * `drying` (P = air-dried / C = oven-dried / L = lyophilized)
   * `ageing` (T = temperature / H = humidity / B = both)
 
-  The script preserves existing manual columns in the manifest (for example `notes`) when the file is rebuilt.
+  Unknown drying/ageing codes or malformed filenames stop the script with an error. The script preserves existing manual columns in the manifest (for example `notes`) when the file is rebuilt.
 
-* `scripts/02_process_ci710_raw_files.R`
-  Processes CI710 raw spectral `.csv` files from `data/raw/` and writes processed outputs to `data/processed/` using the same filenames.
+* `scripts/02_process_ci710_raw_files.R.R`
+  Processes CI710 raw spectral `.csv` files from `data/raw/` and writes processed outputs to `data/processed/` using the same filenames. (The doubled `.R.R` extension is part of the current file name.)
 
   The script:
 
@@ -99,9 +110,13 @@ General rule:
   * reads `data/metadata/sample_manifest.csv`
   * scans all processed `*.csv` files in `data/processed/`
   * checks whether required sections and columns are present
-  * verifies acquisition settings against expected values
+  * verifies acquisition settings against the expected values (mode `Reflectance`, integration time **400 ms**, boxcar width 2, scans to average 1); a file acquired with any other setting (including 350 ms) fails QC
   * evaluates spectral data in the analysis range (default: 400–950 nm)
-  * flags potential issues such as clipping, low calibration span, or unusually high roughness
+  * flags potential issues:
+    * clipping (`warn` when more than 0.5% of wavelengths are ≤ 0.1 or ≥ 99.9)
+    * low calibration span (`warn` when more than 1% of wavelengths have span < 2000)
+    * unusually high roughness (`warn` when above Q3 + 3 × IQR of the roughness of all non-failed files)
+  * fails files with missing sections, unexpected acquisition settings, missing reflectance/calibration values, duplicated or non-monotonic wavelengths, or non-positive calibration span
   * classifies each file as `pass`, `warn`, or `fail`
   * saves result tables and opens them in RStudio with `View()` when run interactively
 
@@ -112,7 +127,7 @@ General rule:
   * `qc_file_level_reasons_summary.csv`
   * `qc_file_level_summary_by_timepoint.csv`
 
-* `scripts/04_replicate_qc.R`
+* `scripts/04_qc_replicate_spectra.R`
   Runs replicate-level quality control on spectra that passed file-level QC (or passed with warnings) and writes replicate QC summaries to `output/tables/`.
 
   The script:
@@ -123,15 +138,15 @@ General rule:
   * keeps only files with file-level status `pass` or `warn`
   * reads processed spectra from `data/processed/`
   * restricts analysis to the analysis range (default: 400–950 nm)
-  * builds `sample_group` identifiers from manifest metadata
-  * computes a median reference spectrum for each sample group
+  * builds `sample_group` identifiers from manifest metadata (fresh: line × individual; dried: + drying; aged: + drying × ageing)
+  * computes a median reference spectrum for each sample group (sets with fewer than two retained replicates are not assessed)
   * compares each replicate against its group median using:
     * Pearson correlation (`pearson_r`)
     * root mean square error (`rmse`)
-  * estimates outlier thresholds at a detailed group level when enough data are available, otherwise falls back to timepoint-level thresholds
+  * derives outlier thresholds empirically: Q1 − 3 × IQR for `pearson_r` and Q3 + 3 × IQR for `rmse`, first at a detailed category level (fresh; dried × drying method; aged × drying method × ageing treatment) when at least 20 metric values are available, otherwise at the timepoint level
   * labels each replicate as:
     * `ok`
-    * `outlier_candidate`
+    * `outlier_candidate` (low `pearson_r` **and** high `rmse`)
     * `thresholds_unavailable`
     * `not_assessed`
 
@@ -142,7 +157,7 @@ General rule:
   * `replicate_qc_summary_by_timepoint.csv`
   * `sample_qc_summary.csv`
   * `replicate_qc_thresholds.csv`
-  
+
 * `scripts/05_analysis_results.R`
   Runs the main reflectance analysis on spectra retained after file-level and replicate-level QC and writes analytical outputs to `output/tables/` and exploratory figures to `output/figures/`.
 
@@ -156,7 +171,7 @@ General rule:
   * excludes only replicate measurements labelled `outlier_candidate` at the replicate-QC step
   * reads processed spectra from `data/processed/`
   * restricts analysis to the analysis range (default: 400–950 nm)
-  * aggregates retained replicate spectra into representative sample spectra using the median reflectance at each wavelength within each biological sample group
+  * aggregates retained replicate spectra into representative sample spectra: the median reflectance at each wavelength within each biological sample group (`reflectance`), together with the replicate mean, SD and CV at each wavelength (`mean_reflectance`, `sd_reflectance`, `cv_reflectance`)
   * calculates spectral indices for individual retained replicates and for representative sample spectra, including:
     * `mfdre`
     * `rep`
@@ -169,6 +184,7 @@ General rule:
     * `pri`
     * `sipi`
     * `psri`
+  * checks the completeness of the aged design (every drying × ageing cell must contain at least one sample) and **stops with an error** when a cell is empty, i.e. the script requires the complete design
   * builds pairwise comparison blocks for:
     * dried vs fresh (`drying_vs_fresh`)
     * aged vs dried (`ageing_vs_dried`)
@@ -176,10 +192,10 @@ General rule:
   * computes for each pair:
     * difference spectra (`delta_reflectance`)
     * root mean square error (`rmse`)
-    * spectral angle mapper (`sam`)
-    * integrated absolute area under the difference spectrum (`iauc`)
+    * spectral angle mapper (`sam`, in radians)
+    * integrated absolute area under the difference spectrum (`iauc`, trapezoidal rule)
     * differences in derived spectral indices (`delta_*`)
-  * saves analytical tables and exploratory plots; blocks requiring aged spectra are skipped automatically when no aged files are available
+  * saves analytical tables and exploratory plots
 
   Output tables include:
 
@@ -189,6 +205,7 @@ General rule:
   * `analysis_replicate_indices.csv`
   * `analysis_replicate_index_summary.csv`
   * `analysis_sample_indices.csv`
+  * `analysis_aged_design_check.csv`
   * `delta_spectra_drying_vs_fresh.csv`
   * `comparison_drying_vs_fresh.csv`
   * `summary_drying_vs_fresh_by_drying.csv`
@@ -200,7 +217,7 @@ General rule:
   * `summary_total_vs_fresh_by_drying_ageing.csv`
   * `comparison_all_blocks.csv`
   * `summary_all_blocks_by_comparison_type.csv`
-  
+
 * `scripts/06_inferential_statistics.R`
   Runs inferential statistical analyses on the pairwise comparison tables generated by script 05 and writes model summaries, tests, estimated marginal means, contrasts, and summary figures to `output/tables/` and `output/figures/`.
 
@@ -217,19 +234,20 @@ General rule:
     * `iauc`
     as primary responses
   * treats spectral-index changes (`delta_*`) as secondary responses
-  * prepares block-specific datasets and determines which fixed effects can be tested:
-    * `drying` for `drying_vs_fresh`
-    * `drying` and `ageing` for `ageing_vs_dried`
-    * `drying` and `ageing` for `total_vs_fresh`
-  * fits candidate linear mixed-effects models (`lmer`) when possible and falls back to simpler models when required by the data structure
-  * for the `drying_vs_fresh` and `total_vs_fresh` blocks, only considers models that retain a random intercept for `individual_id`
+  * fits one linear mixed-effects model (`lmerTest::lmer`, REML) per block and response:
+    * `drying_vs_fresh`: `response ~ drying + line + (1 | individual_id)`
+    * `ageing_vs_dried` and `total_vs_fresh`: `response ~ drying * ageing + line + (1 | individual_id)`
+    * `line` enters as a fixed blocking factor (when at least two lines are present); `individual_id` (line × individual) is a random intercept in all three blocks because several comparisons per block come from the same individual (and, in the fresh-referenced blocks, share the same fresh reference)
+    * there is no fallback to a model without the random intercept; models with a singular fit are kept and flagged (`singular_fit`, `convergence_message`)
   * extracts:
     * model overview
-    * model diagnostics
-    * omnibus tests (`joint_tests`)
-    * estimated marginal means (`emmeans`)
-    * pairwise contrasts
-  * applies multiplicity correction separately for primary and secondary response families
+    * model diagnostics (σ, AIC, BIC, log-likelihood, singularity flag)
+    * omnibus tests (`joint_tests`; F tests with Kenward–Roger degrees of freedom)
+    * estimated marginal means (`emmeans`; one table per fixed term, averaged over the other terms including `line`)
+    * pairwise contrasts (unadjusted at extraction, adjusted afterwards)
+  * applies multiplicity correction separately for primary (Holm) and secondary (Benjamini–Hochberg) response families:
+    * omnibus tests: adjusted across all responses and terms within a comparison block
+    * pairwise contrasts: adjusted within each comparison block × response × term
   * saves summary figures for primary-response estimated marginal means and contrasts
 
   Output tables include:
@@ -248,15 +266,27 @@ General rule:
 
   * `06_primary_emmeans.png`
   * `06_primary_contrasts.png`
-  
+
 * `scripts/07_publication_outputs.R`
-  Generates publication-ready figures and source-data tables from the outputs produced by scripts 05 and 06, and writes them to `output/publication/figures/` and `output/publication/tables/`.
+  Generates publication-ready figures and source-data tables from the outputs produced by scripts 05 and 06. Figures are written to `output/publication/figures/`, source-data tables to `output/publication/tables/`.
+
+  Design conventions:
+
+  * figures are drawn at final print size (`fig_width_mm`, default 174 mm = full page width; use 84 mm for one column) with text of at least 6 pt, and are saved as vector PDF and 600 dpi PNG
+  * labels are written out on the figures ("Ageing with temperature", "Lyophilized", ...) instead of codes such as T/H/B or A/O/L, so that captions and legends need not decode them
+  * images carry no figure title (numbers and captions belong in the manuscript; draft captions and alternative text are in `figure_captions_draft.md`)
+  * drying method is encoded by colour, using a palette chosen to stay distinguishable under colour-vision deficiency and in grayscale (air-dried orange, oven-dried green, lyophilized purple; fresh grey); ageing regime has its own colours (temperature red-orange, humidity blue, both pink-purple) and, for points, its own shapes; in the spectra figure the drying method is given by the column and dried spectra are black
+  * figure numbers are not part of the images but of the file names (`Fig. 1.pdf`, `Fig. 1.png`, ...): Fig. 1 experimental design, Fig. 3 spectral trajectories, Fig. 4 primary metrics, Fig. 5 index heatmap; Fig. 2 is a photograph of dried leaves (`figure 2.jpg`) that is not produced by this workflow
+  * the script switches R to a UTF-8 character locale when necessary, because the figures use `−`, `×`, `Δ` and `–` (under a `C` locale, e.g. `Rscript` with `LANG` unset, they would print as dots)
 
   The script:
 
   * sources helper functions from `R/publication_helpers.R`
   * reads analytical outputs from `output/tables/`, including:
     * `analysis_sample_spectra.csv`
+    * `analysis_sample_indices.csv`
+    * `analysis_aged_design_check.csv`
+    * `qc_file_level_results.csv`
     * `comparison_drying_vs_fresh.csv`
     * `comparison_ageing_vs_dried.csv`
     * `comparison_total_vs_fresh.csv`
@@ -265,19 +295,17 @@ General rule:
     * `delta_spectra_total_vs_fresh.csv`
   * reads inferential outputs from `output/tables/`, including:
     * `stats_emmeans_primary.csv`
+    * `stats_contrasts_primary.csv`
     * `stats_model_overview.csv`
     * `stats_tests_primary.csv`
+    * `stats_tests_secondary_indices.csv`
   * records which comparison blocks are available in the current dataset
   * copies selected inferential summary tables into the publication-output folder
-  * builds publication-ready Figure 2 showing:
-    * mean reflectance trajectories across specimen history
-    * mean difference spectra for dried vs fresh, aged vs dried, and aged vs fresh comparisons
-  * builds publication-ready Figure 3 showing:
-    * raw observations for the primary spectral divergence metrics
-    * estimated marginal means and confidence intervals for `rmse`, `sam`, and `iauc`
-  * builds publication-ready Figure 4 showing:
-    * heatmaps of mean changes in derived spectral indices across comparison blocks and treatments
-  * exports source-data tables used to generate the publication figures
+  * builds the experimental-design schematic (workflow with the three analysed comparisons, Latin-square allocation with the actual number of samples per drying × ageing cell, and the programmed 8-h cycles of the three ageing regimes; protocol values are typed into the script from the Methods, sample numbers come from the analysis tables)
+  * builds the spectral-trajectories figure: mean spectra (fresh, dried, aged) and the three mean difference spectra (dried − fresh, aged − dried, aged − fresh) with 95% confidence ribbons across individuals, one column per drying method, lines coloured by ageing regime, wavelength bands marked; spectra are averaged into 1-nm bins for display only
+  * builds the primary-metrics figure: raw observations, estimated marginal means with 95% confidence intervals, Holm-adjusted omnibus P values and compact letters (only where the omnibus test is significant) for `rmse`, `sam` and `iauc`
+  * builds the index heatmap: mean change of all eleven derived spectral variables standardised by the SD of the variable among fresh leaves (raw mean changes go to the source-data table), with Benjamini–Hochberg-adjusted omnibus test results for drying, ageing and their interaction
+  * exports the source data used to draw the figures
   * skips figure components automatically when the required upstream data are unavailable
 
   Output tables may include:
@@ -285,16 +313,19 @@ General rule:
   * `07_available_blocks.csv`
   * `07_model_overview_copy.csv`
   * `07_primary_tests_copy.csv`
-  * `07_Figure2_source_data.csv`
-  * `07_Figure3_raw_points.csv`
-  * `07_Figure3_emmeans.csv`
-  * `07_Figure4_source_data.csv`
+  * `Fig. 1 source data.csv`
+  * `Fig. 3 source data.csv`
+  * `Fig. 4 source data - raw points.csv`
+  * `Fig. 4 source data - estimated marginal means.csv`
+  * `Fig. 5 source data.csv`
+  * `Fig. 5 source data - omnibus tests.csv`
 
-  Output figures may include:
+  Output figures (each as `.pdf` and `.png`) are named after their figure numbers in the manuscript (the mapping is `figure_numbers` at the top of the script):
 
-  * `07_Figure2_spectral_trajectories.png`
-  * `07_Figure3_primary_metrics.png`
-  * `07_Figure4_index_heatmap.png`
+  * `Fig. 1` — experimental design
+  * `Fig. 3` — spectral trajectories
+  * `Fig. 4` — primary metrics
+  * `Fig. 5` — index heatmap
 
 ## Notes
 
@@ -302,14 +333,12 @@ General rule:
 * To keep the directory skeleton visible, `.gitkeep` files are tracked in the relevant folders.
 * Processed files in `data/processed/` are generated locally from raw inputs and may be refreshed automatically when matching files in `data/raw/` are updated.
 * To avoid unnecessary re-processing, the CI710 processing step only runs for new or modified raw files.
-* The file-level QC step reads all processed files currently present in `data/processed/`.
+* The file-level QC step reads all processed files currently present in `data/processed/` and requires an integration time of exactly 400 ms.
 * Files without a matching row in the manifest can still be checked at file level, but joined metadata fields will remain empty.
 * The replicate QC step only evaluates files that received file-level QC status `pass` or `warn`.
-* Replicate-level QC is based on within-group agreement among replicates and is intended to identify potentially unusual spectra for review, not to remove files automatically.
-* The main analysis step (`05_analysis_results.R`) is designed to work with incomplete experimental stages. If only fresh and dried spectra are present, it will run the drying-versus-fresh block and create empty outputs for ageing-dependent comparison blocks without failing.
-* Representative sample spectra are calculated as the median reflectance at each wavelength across retained replicate measurements within a biological sample group.
-* Replicate-level QC is used here as an exclusion flag only for measurements classified as `outlier_candidate`; files with `thresholds_unavailable` or `not_assessed` are retained unless excluded manually.
-* Exploratory figures produced by script 05 are intended for data inspection and workflow validation. Final inferential statistics and publication-ready figures should be generated in a later downstream script.
-* Exploratory figures produced by script 05 are intended for data inspection and workflow validation. Final inferential statistics are generated downstream in `06_inferential_statistics.R`.
-* The inferential step (`06_inferential_statistics.R`) can also be run on incomplete datasets. If ageing-dependent comparison files are empty, only the available comparison blocks are analysed.
-* In the `drying_vs_fresh` and `total_vs_fresh` blocks, inferential models are restricted to formulations that retain a random intercept for `individual_id`, because multiple comparisons from the same biological individual share a common fresh reference.
+* Replicate-level QC is based on within-group agreement among replicates and is intended to identify potentially unusual spectra for review; it is used in script 05 as an exclusion flag only for measurements classified as `outlier_candidate`. Files with `thresholds_unavailable` or `not_assessed` are retained unless excluded manually.
+* Representative sample spectra use the median reflectance at each wavelength across retained replicate measurements within a biological sample group (`reflectance`); the replicate mean, SD and CV are stored alongside it for repeatability checks.
+* The main analysis step (`05_analysis_results.R`) requires a complete aged design. If any drying × ageing cell is empty after QC it stops with an error; the list of missing cells is written to `analysis_aged_design_check.csv` beforehand.
+* Exploratory figures produced by script 05 are intended for data inspection and workflow validation. Inferential statistics are generated in `06_inferential_statistics.R` and publication-ready figures in `07_publication_outputs.R`.
+* In all three blocks (`drying_vs_fresh`, `ageing_vs_dried`, `total_vs_fresh`) inferential models retain a random intercept for `individual_id`, because multiple comparisons from the same biological individual are analysed (and, in the fresh-referenced blocks, share a common fresh reference).
+* When reading processed files, `readr` guesses the type of `peak_wavelength` from the first rows (which are empty for spectrum records) and reports parsing warnings for the `peaks` section. The analysis does not use the `peaks` section, so results are not affected.

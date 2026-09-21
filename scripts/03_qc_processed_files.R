@@ -37,15 +37,14 @@ if (length(processed_files) == 0) {
 manifest <- read_csv(manifest_path, show_col_types = FALSE) %>%
   mutate(file = basename(file))
 
-# TEMPORARY EXPLORATORY ANALYSIS:
-# accept both 350 and 400 ms to include the current temperature-ageing series.
-# FINAL ANALYSIS SHOULD USE 400 ms ONLY after temperature samples are remeasured.
-# Unless deliberately decided.
+# Acquisition settings must be identical for all files (see assess_file defaults):
+# mode = Reflectance, integration time = 400 ms, boxcar width = 2, scans to average = 1.
+# Files acquired with any other integration time (e.g. 350 ms) fail QC.
 
 qc_results <- map_dfr(
   processed_files,
   assess_file,
-  expected_integration_time = c(350, 400)
+  expected_integration_time = 400
 )
 
 roughness_reference <- qc_results %>%
