@@ -200,6 +200,54 @@ mean_cycle_temperature <- function(blocks, steps = 200L) {
   sum(weighted) / total_h
 }
 
+## Directional consistency of a signed change across inbred lines.
+##
+## The primary metrics are non-negative distances, so only the signed index
+## changes (`delta_*`) carry a direction. For each of them this reports the
+## dominant direction, the share of comparisons that follow it overall and
+## within the least consistent line, and how many lines agree on it. A change
+## that keeps one direction in every genetic background is a bias that a model
+## can absorb; one whose sign depends on the line is not.
+direction_consistency <- function(comparisons, responses, block) {
+  purrr::map_dfr(responses, function(response) {
+    values <- comparisons[[response]]
+    if (is.null(values) || all(is.na(values))) {
+      return(tibble::tibble())
+    }
+
+    overall_mean <- mean(values, na.rm = TRUE)
+    dominant <- sign(overall_mean)
+    if (dominant == 0) {
+      return(tibble::tibble())
+    }
+
+    follows <- sign(values) == dominant
+
+    per_line <- tapply(
+      seq_along(values), comparisons$line,
+      function(idx) {
+        v <- values[idx]
+        v <- v[!is.na(v)]
+        c(share = mean(sign(v) == dominant), line_mean = mean(v))
+      }
+    )
+    shares <- vapply(per_line, function(z) z[["share"]], numeric(1))
+    line_means <- vapply(per_line, function(z) z[["line_mean"]], numeric(1))
+
+    tibble::tibble(
+      comparison_block = block,
+      response = response,
+      overall_mean = overall_mean,
+      dominant_direction = if (dominant > 0) "increase" else "decrease",
+      share_following_overall = mean(follows, na.rm = TRUE),
+      n_lines = length(shares),
+      share_following_min = min(shares),
+      share_following_max = max(shares),
+      n_lines_agreeing = sum(sign(line_means) == dominant)
+    )
+  })
+}
+
 ## Refit one primary model and return the omnibus tests, optionally after
 ## dropping a single inbred line.
 fit_primary_model <- function(data, response, fixed_formula, drop_line = NA_character_) {

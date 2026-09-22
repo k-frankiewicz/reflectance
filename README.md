@@ -340,6 +340,7 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * refits the primary models on **noise-corrected** responses, `sqrt(max(0, observed² − null²))`, applied to `rmse` and `sam` only (the absolute-area construction of `iauc` does not combine in quadrature, so for it only the null is reported)
   * refits every primary model **dropping one inbred line at a time**
   * computes the **spectral distance between the drying methods themselves**, within an individual, which the comparison blocks of script 05 never measure because each dried sample is compared with its own fresh or dried reference
+  * reports the **directional consistency** of every signed index change across the eight inbred lines: whether a distortion can be corrected depends less on its size than on whether it always points the same way, so for each `delta_*` response the table gives the dominant direction, the share of comparisons following it overall and within the least consistent line, and how many lines agree on it (the primary metrics are non-negative distances and carry no direction, so they are excluded)
   * converts each ageing regime into a **thermal (Arrhenius) acceleration factor** relative to storage at 20 °C, integrated numerically over the programmed cycle including ramps, across a published range of activation energies for cellulose. Protocol values are typed in from the Methods, as in script 07. The conversion covers only temperature-driven chemistry; damage caused by repeated swelling and shrinking of the tissue is not an Arrhenius process and is therefore reported as an amplitude and a number of cycles instead
 
   The split-half null is the slow step. It is cached in `posthoc_splithalf_null.csv` and recomputed only when the cache is missing, was built with a different number of draws, or is older than `analysis_retained_spectra.csv`; set `force_recompute_null <- TRUE` to force it.
@@ -356,6 +357,7 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * `posthoc_between_drying_distances.csv`
   * `posthoc_between_drying_summary.csv`
   * `posthoc_between_drying_tests.csv`
+  * `posthoc_direction_consistency.csv`
   * `posthoc_thermal_acceleration.csv`
 
 ## Notes

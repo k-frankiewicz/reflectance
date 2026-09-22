@@ -544,6 +544,38 @@ print(
     )
 )
 
+# ---------------------------------------------------------------------------
+# 7. Directional consistency of the index changes across lines
+# ---------------------------------------------------------------------------
+#
+# Whether a distortion can be corrected depends less on its size than on
+# whether it always points the same way. This reports, for every signed index
+# change, how consistently the comparisons follow the dominant direction, both
+# overall and within the least consistent inbred line.
+
+direction_summary <- map_dfr(seq_len(nrow(comparison_blocks)), function(i) {
+  block <- comparison_blocks$comparison_block[i]
+  comparisons <- read_csv(comparison_blocks$path[i], show_col_types = FALSE)
+  delta_responses <- grep("^delta_", names(comparisons), value = TRUE)
+  direction_consistency(comparisons, delta_responses, block)
+})
+
+if (nrow(direction_summary) > 0) {
+  write_csv(
+    direction_summary,
+    file.path(output_tables_dir, "posthoc_direction_consistency.csv")
+  )
+
+  message("Directional consistency of index changes across lines:")
+  print(
+    direction_summary %>%
+      select(
+        "comparison_block", "response", "dominant_direction",
+        "share_following_overall", "share_following_min", "n_lines_agreeing", "n_lines"
+      )
+  )
+}
+
 noise_summary <- bind_rows(all_noise_summary)
 corrected_tests <- bind_rows(all_corrected_tests)
 corrected_emmeans <- bind_rows(all_corrected_emmeans)
