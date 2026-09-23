@@ -218,13 +218,40 @@ if (!requireNamespace("cowplot", quietly = TRUE)) {
   )
   boxes <- left_join(boxes, box_style, by = "id")
 
-  # leaf icon with cut lines (fresh leaf cut into three pieces)
+  # leaf icon: a maize (monocot) blade -- long, narrow, roughly parallel-sided through the
+  # middle, tapering gradually to a point at the tip, with a blunt (not pointed) base -- rather
+  # than the lens-shaped outline of a dicot leaf. Only the central section (mid-lamina) is
+  # excised and divided into three pieces; the tip and base (pale) are not used, matching
+  # "we excised the central leaf section, divided it into three pieces" in the Methods.
   leaf_x0 <- 4.5; leaf_len <- 26; leaf_y <- 62.6; leaf_w <- 4.6
-  lx <- seq(0, leaf_len, length.out = 70)
-  lh <- leaf_w * sin(pi * (lx / leaf_len)^0.75)^0.7
-  leaf <- tibble(x = c(leaf_x0 + lx, rev(leaf_x0 + lx)), y = c(leaf_y + lh, rev(leaf_y - lh)))
+  leaf_width_frac <- function(t) {
+    base_rise <- pmin(t / 0.12, 1)
+    base_rise <- 3 * base_rise^2 - 2 * base_rise^3  # smooth (rounded, not pointed) base
+    tip_start <- 0.62
+    tip_taper <- pmax(0, 1 - pmax(t - tip_start, 0) / (1 - tip_start))
+    tip_taper <- ifelse(t <= tip_start, 1, tip_taper^0.6)  # long gradual taper to a fine point
+    base_rise * tip_taper
+  }
+  leaf_lh <- function(x) leaf_w * leaf_width_frac(x / leaf_len)
+  leaf_strip <- function(x0, x1, n = 40) {
+    x <- seq(x0, x1, length.out = n)
+    h <- leaf_lh(x)
+    tibble(x = c(leaf_x0 + x, rev(leaf_x0 + x)), y = c(leaf_y + h, rev(leaf_y - h)))
+  }
+  excised_x0 <- leaf_len * 0.24
+  excised_x1 <- leaf_len * 0.76
+  leaf_unused <- bind_rows(
+    leaf_strip(0, excised_x0) %>% mutate(part = "base"),
+    leaf_strip(excised_x1, leaf_len) %>% mutate(part = "tip")
+  )
+  leaf_used <- leaf_strip(excised_x0, excised_x1)
+  leaf_outline <- leaf_strip(0, leaf_len, n = 90)
+  leaf_excision_bounds <- tibble(
+    x = leaf_x0 + c(excised_x0, excised_x1), y = leaf_y - leaf_w - 0.6, yend = leaf_y + leaf_w + 0.6
+  )
   leaf_cuts <- tibble(
-    x = leaf_x0 + leaf_len * c(1 / 3, 2 / 3), y = leaf_y - leaf_w - 1, yend = leaf_y + leaf_w + 1
+    x = leaf_x0 + excised_x0 + (excised_x1 - excised_x0) * c(1 / 3, 2 / 3),
+    y = leaf_y - leaf_w - 1, yend = leaf_y + leaf_w + 1
   )
 
   # ---- texts -----------------------------------------------------------------------
@@ -297,8 +324,11 @@ if (!requireNamespace("cowplot", quietly = TRUE)) {
 
   p_flow <- ggplot() +
     geom_polygon(data = boxes, aes(x = x, y = y, group = id), fill = boxes$fill, colour = boxes$edge, linewidth = 0.6) +
-    geom_polygon(data = leaf, aes(x = x, y = y), fill = "#A8CC86", colour = "#4F7A3A", linewidth = 0.4) +
-    geom_segment(aes(x = leaf_x0, xend = leaf_x0 + leaf_len, y = leaf_y, yend = leaf_y), colour = "#4F7A3A", linewidth = 0.3) +
+    geom_polygon(data = leaf_unused, aes(x = x, y = y, group = part), fill = "#E1E8D6", colour = NA) +
+    geom_polygon(data = leaf_used, aes(x = x, y = y), fill = "#A8CC86", colour = NA) +
+    geom_polygon(data = leaf_outline, aes(x = x, y = y), fill = NA, colour = "#4F7A3A", linewidth = 0.4) +
+    geom_segment(aes(x = leaf_x0, xend = leaf_x0 + leaf_len, y = leaf_y, yend = leaf_y), colour = "#4F7A3A", linewidth = 0.25) +
+    geom_segment(data = leaf_excision_bounds, aes(x = x, xend = x, y = y, yend = yend), colour = "#4F7A3A", linewidth = 0.35) +
     geom_segment(data = leaf_cuts, aes(x = x, xend = x, y = y, yend = yend), colour = "grey20", linewidth = 0.4, linetype = "dashed") +
     geom_polygon(data = pills, aes(x = x, y = y, group = id), fill = "#F6F6F6", colour = "grey65", linewidth = 0.35) +
     geom_path(data = icons, aes(x = x, y = y, group = id), colour = "grey25", linewidth = 0.5) +
