@@ -7,6 +7,14 @@ out_path <- "data/metadata/sample_manifest.csv"
 # List all CSV files in data/raw
 files <- list.files(raw_dir, pattern = "\\.csv$", full.names = TRUE)
 
+if (length(files) == 0) {
+  stop(
+    "No .csv files found in ",
+    normalizePath(raw_dir, winslash = "/", mustWork = FALSE),
+    ". Put the raw CI-710 exports into data/raw/ and run the script from the project root."
+  )
+}
+
 # Parse metadata from filename
 parse_file <- function(path) {
   fname <- basename(path)
