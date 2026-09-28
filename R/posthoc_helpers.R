@@ -154,52 +154,6 @@ between_drying_distances <- function(sample_spectra, min_wl, max_wl) {
     dplyr::ungroup()
 }
 
-## Thermal acceleration of an ageing regime, in the sense used by accelerated
-## ageing standards for paper (ASTM D6819, ISO 5630): the rate of a
-## temperature-driven degradation reaction is assumed to follow the Arrhenius
-## equation, and the exposure is expressed as the equivalent time at a
-## reference storage temperature.
-##
-## The factor is integrated numerically over one programmed cycle, ramps
-## included, because the Arrhenius factor is convex in temperature and the rate
-## at the mean temperature of a ramp is not the mean rate over that ramp.
-##
-## `blocks` is a list of blocks, each with `target_c`, `ramp_h` and `hold_h`.
-## The regime is assumed to be in steady-state cycling, so the ramp of the
-## first block starts from the target of the last one.
-arrhenius_factor <- function(blocks, activation_energy_j, reference_c, steps = 200L) {
-  gas_constant <- 8.314462618
-  ref_k <- reference_c + 273.15
-
-  rate_ratio <- function(temp_c) {
-    exp(-activation_energy_j / gas_constant * (1 / (temp_c + 273.15) - 1 / ref_k))
-  }
-
-  previous_target <- blocks[[length(blocks)]]$target_c
-
-  weighted <- vapply(blocks, function(b) {
-    ## Linear ramp from the previous hold temperature to this block's target.
-    ramp_temps <- seq(previous_target, b$target_c, length.out = steps)
-    ramp_rate <- mean(rate_ratio(ramp_temps))
-    previous_target <<- b$target_c
-    ramp_rate * b$ramp_h + rate_ratio(b$target_c) * b$hold_h
-  }, numeric(1))
-
-  total_h <- sum(vapply(blocks, function(b) b$ramp_h + b$hold_h, numeric(1)))
-  sum(weighted) / total_h
-}
-
-mean_cycle_temperature <- function(blocks, steps = 200L) {
-  previous_target <- blocks[[length(blocks)]]$target_c
-  weighted <- vapply(blocks, function(b) {
-    ramp_mean <- mean(seq(previous_target, b$target_c, length.out = steps))
-    previous_target <<- b$target_c
-    ramp_mean * b$ramp_h + b$target_c * b$hold_h
-  }, numeric(1))
-  total_h <- sum(vapply(blocks, function(b) b$ramp_h + b$hold_h, numeric(1)))
-  sum(weighted) / total_h
-}
-
 ## Directional consistency of a signed change across inbred lines.
 ##
 ## The primary metrics are non-negative distances, so only the signed index

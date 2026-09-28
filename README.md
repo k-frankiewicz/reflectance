@@ -12,7 +12,7 @@ This repository contains an R/RStudio workflow for processing spectral reflectan
   * `R/analysis_helpers.R` — helper functions used in the analytical workflow, including spectral index calculation, spectral similarity/difference metrics, summary helpers, and plotting utilities
   * `R/stats_helpers.R` — helper functions used in inferential statistical analyses, including model fitting, diagnostics, estimated marginal means, contrasts, and test extraction
   * `R/publication_helpers.R` — helper functions used for publication-ready figures and tables: safe readers and input harmonisation, the shared figure theme (`theme_pub()`), the colour-vision-safe palettes (drying method, ageing regime) and point-shape conventions, vector + high-resolution export (`save_publication_figure()`), and compact-letter display from pairwise contrasts (`compact_letters()`)
-  * `R/posthoc_helpers.R` — helper functions used for post-hoc robustness checks: spectral distance metrics reused outside the main pipeline, split-half resampling of replicates and the rescaling of that null to a real comparison, the quadrature-based noise correction, the Arrhenius acceleration factor of a programmed ageing cycle, distances between drying methods, and leave-one-line-out refitting
+  * `R/posthoc_helpers.R` — helper functions used for post-hoc robustness checks: spectral distance metrics reused outside the main pipeline, split-half resampling of replicates and the rescaling of that null to a real comparison, the quadrature-based noise correction, distances between drying methods, and leave-one-line-out refitting
 
 * `scripts/`
   Step-by-step scripts that run the workflow in a defined order.
@@ -341,7 +341,6 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * refits every primary model **dropping one inbred line at a time**
   * computes the **spectral distance between the drying methods themselves**, within an individual, which the comparison blocks of script 05 never measure because each dried sample is compared with its own fresh or dried reference
   * reports the **directional consistency** of every signed index change across the eight inbred lines: whether a distortion can be corrected depends less on its size than on whether it always points the same way, so for each `delta_*` response the table gives the dominant direction, the share of comparisons following it overall and within the least consistent line, and how many lines agree on it (the primary metrics are non-negative distances and carry no direction, so they are excluded)
-  * converts each ageing regime into a **thermal (Arrhenius) acceleration factor** relative to storage at 20 °C, integrated numerically over the programmed cycle including ramps, across a published range of activation energies for cellulose. Protocol values are typed in from the Methods, as in script 07. The conversion covers only temperature-driven chemistry; damage caused by repeated swelling and shrinking of the tissue is not an Arrhenius process and is therefore reported as an amplitude and a number of cycles instead
 
   The split-half null is the slow step. It is cached in `posthoc_splithalf_null.csv` and recomputed only when the cache is missing, was built with a different number of draws, or is older than `analysis_retained_spectra.csv`; set `force_recompute_null <- TRUE` to force it.
 
@@ -358,7 +357,6 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * `posthoc_between_drying_summary.csv`
   * `posthoc_between_drying_tests.csv`
   * `posthoc_direction_consistency.csv`
-  * `posthoc_thermal_acceleration.csv`
 
 ## Notes
 
