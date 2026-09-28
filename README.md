@@ -277,7 +277,7 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * labels are written out on the figures ("Ageing with temperature", "Lyophilized", ...) instead of codes such as T/H/B or A/O/L, so that captions and legends need not decode them
   * images carry no figure title (numbers and captions belong in the manuscript; draft captions and alternative text are in `figure_captions_draft.md`)
   * drying method is encoded by colour, using a palette chosen to stay distinguishable under colour-vision deficiency and in grayscale (air-dried orange, oven-dried green, lyophilized purple; fresh grey); ageing regime has its own colours (temperature red-orange, humidity blue, both pink-purple) and, for points, its own shapes; in the spectra figure the drying method is given by the column and dried spectra are black
-  * figure numbers are not part of the images but of the file names (`Fig. 1.pdf`, `Fig. 1.png`, ...): Fig. 1 experimental design, Fig. 3 spectral trajectories, Fig. 4 primary metrics, Fig. 5 index heatmap; Fig. 2 is a photograph of dried leaves (`figure 2.jpg`) that is not produced by this workflow
+  * figure numbers are not part of the images but of the file names (`Fig. 1.pdf`, `Fig. 1.png`, ...): Fig. 1 experimental design, Fig. 4 spectral trajectories, Fig. 5 primary metrics, Fig. 6 index heatmap; Fig. 2 (dried leaf sections) and Fig. 3 (ageing chamber) are photographs that are not produced by this workflow
   * the script switches R to a UTF-8 character locale when necessary, because the figures use `−`, `×`, `Δ` and `–` (under a `C` locale, e.g. `Rscript` with `LANG` unset, they would print as dots)
 
   The script:
@@ -315,18 +315,18 @@ Raw files follow the naming scheme `LINE.INDIVIDUAL[.DRYING[.AGEING]].REPLICATE.
   * `07_model_overview_copy.csv`
   * `07_primary_tests_copy.csv`
   * `Fig. 1 source data.csv`
-  * `Fig. 3 source data.csv`
-  * `Fig. 4 source data - raw points.csv`
-  * `Fig. 4 source data - estimated marginal means.csv`
-  * `Fig. 5 source data.csv`
-  * `Fig. 5 source data - omnibus tests.csv`
+  * `Fig. 4 source data.csv`
+  * `Fig. 5 source data - raw points.csv`
+  * `Fig. 5 source data - estimated marginal means.csv`
+  * `Fig. 6 source data.csv`
+  * `Fig. 6 source data - omnibus tests.csv`
 
   Output figures (each as `.pdf` and `.png`) are named after their figure numbers in the manuscript (the mapping is `figure_numbers` at the top of the script):
 
   * `Fig. 1` — experimental design
-  * `Fig. 3` — spectral trajectories
-  * `Fig. 4` — primary metrics
-  * `Fig. 5` — index heatmap
+  * `Fig. 4` — spectral trajectories
+  * `Fig. 5` — primary metrics
+  * `Fig. 6` — index heatmap
 
 * `scripts/08_posthoc_robustness.R`
   Runs post-hoc robustness checks on the results of scripts 05 and 06 and writes them to `output/tables/`. These are sensitivity analyses, not part of the primary analysis; the uncorrected results they report reproduce those of script 06 exactly, because they use the same `emmeans::joint_tests()` machinery and the same multiplicity families (treatment terms only, `line` excluded).

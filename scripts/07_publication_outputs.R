@@ -36,10 +36,12 @@ base_size <- 7
 # workflow). Publication files are named after these numbers: "Fig. 1.pdf", "Fig. 1.png", ...
 # and the matching source-data tables "Fig. 1 source data.csv", ...
 figure_numbers <- c(
+  # Fig. 2 (dried leaf sections) and Fig. 3 (ageing chamber) are photographs and
+  # are not produced by this workflow.
   experimental_design = 1,
-  spectral_trajectories = 3,
-  primary_metrics = 4,
-  index_heatmap = 5
+  spectral_trajectories = 4,
+  primary_metrics = 5,
+  index_heatmap = 6
 )
 fig_path <- function(key) file.path(output_figures_dir, paste0("Fig. ", figure_numbers[[key]]))
 source_path <- function(key, suffix = "") {
