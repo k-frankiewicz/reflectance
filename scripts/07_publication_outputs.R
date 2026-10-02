@@ -277,7 +277,7 @@ if (!requireNamespace("cowplot", quietly = TRUE)) {
     tibble(x = x_age[1] + 4, y = c(title_y[2], proto_y[2]), hjust = 0, face = c("bold", "plain"),
            label = c(pub_labels_ageing_full[["H"]], "25 and 75% RH at 20 °C")),
     tibble(x = x_age[1] + 4, y = c(box_ymin[3] + 9.5, proto_y[3] - 0.7), hjust = 0, face = c("bold", "plain"),
-           label = c("Ageing with temperature\nand humidity (both)", "15 °C/75% RH and 40 °C/25% RH")),
+           label = c(pub_labels_ageing_full[["B"]], "15 °C/75% RH and 40 °C/25% RH")),
     tibble(x = 108, y = 61, label = "Latin-square\nallocation (B)", face = "bold", hjust = 0.5),
     tibble(x = 108, y = 45, label = "every drying method\nreaches every regime", face = "plain", hjust = 0.5),
     # sample numbers
@@ -378,7 +378,7 @@ if (!requireNamespace("cowplot", quietly = TRUE)) {
               fill = alloc_head_cols$fill, colour = NA) +
     geom_text(data = alloc_head_cols, aes(x = x, y = y, label = label),
               colour = alloc_head_cols$tcol, size = pt_to_mm(base_size - 1)) +
-    annotate("text", x = 2, y = 4.55, label = "Ageing with:", size = pt_to_mm(base_size - 0.5), fontface = "italic") +
+    annotate("text", x = 2, y = 4.55, label = "Ageing regime:", size = pt_to_mm(base_size - 0.5), fontface = "italic") +
     annotate("text", x = -0.28, y = 4.0, label = "Drying:", size = pt_to_mm(base_size - 0.5), fontface = "italic") +
     annotate("text", x = 1.4, y = 5.1, label = "Allocation of dried samples", fontface = "bold", size = pt_to_mm(base_size)) +
     annotate("text", x = 1.4, y = 0.05,
@@ -399,9 +399,9 @@ if (!requireNamespace("cowplot", quietly = TRUE)) {
   )
 
   regime_strip <- c(
-    T = "Ageing with\ntemperature",
-    H = "Ageing with\nhumidity",
-    B = "Ageing with temperature\nand humidity (both)"
+    T = "Fluctuating\ntemperature",
+    H = "Fluctuating\nRH",
+    B = "Fluctuating\ntemperature + RH"
   )
 
   # two 4-h blocks per cycle; 0.5-h ramp then 3.5-h hold; the cycle starts from the end state

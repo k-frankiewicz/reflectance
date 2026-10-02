@@ -352,12 +352,15 @@ pub_labels_drying <- c(P = "Air-dried", C = "Oven-dried", L = "Lyophilized")
 pub_labels_drying_short <- c(P = "Air", C = "Oven", L = "Lyoph.")
 pub_labels_ageing <- c(T = "Temperature", H = "Humidity", B = "Both")
 # full wording for figures (labels on the figure instead of abbreviations plus legend)
+# The regimes are fluctuations, not constant elevated conditions: in conservation practice
+# "thermal ageing" normally means holding material at a raised temperature, so the labels say
+# "fluctuating" explicitly (M. Grenda-Kurmanow, review of 2026-09-30).
 pub_labels_ageing_full <- c(
-  T = "Ageing with temperature",
-  H = "Ageing with humidity",
-  B = "Ageing with temperature and humidity (both)"
+  T = "Fluctuating temperature",
+  H = "Fluctuating RH",
+  B = "Fluctuating temperature + RH"
 )
-pub_labels_ageing_with <- c(T = "With temperature", H = "With humidity", B = "With temperature and humidity")
+pub_labels_ageing_with <- c(T = "Fluctuating temperature", H = "Fluctuating RH", B = "Fluctuating temperature + RH")
 pub_labels_ageing_short <- c(T = "Temp.", H = "Humid.", B = "Both")
 
 # Ageing regimes: point shapes (filled, so they take fill + outline)
