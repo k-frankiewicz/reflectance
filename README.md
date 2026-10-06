@@ -2,6 +2,18 @@
 
 This repository contains an R/RStudio workflow for processing spectral reflectance measurements (CI-710 leaf spectrometer), running quality control, and generating derived outputs, statistics, and publication figures.
 
+## Data
+
+The raw spectra analysed with this code are deposited in Dane Badawcze UW, the research data
+repository of the University of Warsaw: https://doi.org/10.58132/2MO6SQ (CC0). To reproduce the
+analysis, download the deposit and place its contents as follows:
+
+* the 1,539 CI-710 export files from `raw measurements.zip` → `data/raw/`
+* `sample_manifest.csv` → `data/metadata/`
+
+Then run the scripts in `scripts/` in numeric order (`01` … `08`); each one reads what the previous
+one wrote and leaves its own output under `output/`.
+
 ## Folder structure
 
 * `R/`
